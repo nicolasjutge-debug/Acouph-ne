@@ -224,76 +224,6 @@ var PLAN=[
 ];
 var AF=[125,250,500,1000,2000,4000,6000,8000];
 
-// ═══ ADAPTATION PROGRAMME SELON RESSENTI ══════════════════
-// Retourne le plan adapté au ressenti du jour
-function adaptPlan(weekPlan){
-  if(!weekPlan) return {m:['pink','alpha'],e:['brown','delta']};
-  var tr=todayRessenti();
-  if(!tr) return weekPlan; // pas de ressenti → plan standard
-
-  var lvl=tr.level, type=tr.type, factors=tr.factors||[];
-
-  // Plan de base copié
-  var m=weekPlan.m.slice(), e=weekPlan.e.slice();
-
-  // ── Selon intensité ──────────────────────────────────────
-  if(lvl>=7){
-    // Intense : sons apaisants + Delta prioritaires
-    m=['brown','delta'];
-    e=['ocean','delta'];
-  } else if(lvl>=4){
-    // Modéré : Notch + Alpha pour calmer
-    // Garder notch si présent, ajouter alpha
-    if(m.indexOf('notch')>=0){ m=['notch','alpha']; }
-    else { m=['pink','alpha']; }
-    if(e.indexOf('notch')>=0){ e=['notch','delta']; }
-    else { e=['brown','delta']; }
-  }
-  // léger (1-3) : plan standard
-
-  // ── Selon type d'acouphène ───────────────────────────────
-  if(type==='sifflement'){
-    // Sifflement aigu → Notch en priorité
-    if(m.indexOf('notch')<0 && lvl>=4) m[0]='notch';
-    if(e.indexOf('notch')<0 && lvl>=4) e[0]='notch';
-  } else if(type==='bourdonnement'){
-    // Bourdonnement → Brun + Thêta
-    m[m.length-1]='theta'; e[0]='brown';
-  } else if(type==='pulsatile'){
-    // Pulsatile → Océan + Alpha (rythme régulier)
-    m[m.length-1]='alpha'; e[0]='ocean';
-  }
-
-  // ── Selon facteurs aggravants ────────────────────────────
-  if(factors.indexOf('stress')>=0){
-    // Stress → Alpha en soirée
-    e[e.length-1]='alpha';
-  }
-  if(factors.indexOf('fatigue')>=0){
-    // Fatigue → Delta la nuit
-    e[e.length-1]='delta';
-  }
-  if(factors.indexOf('bruit')>=0){
-    // Bruit → Notch renforcé
-    if(m.indexOf('notch')<0) m[0]='notch';
-  }
-
-  return {m:m, e:e, adapted:true, reason:buildReason(lvl,type,factors)};
-}
-
-function buildReason(lvl,type,factors){
-  var r=[];
-  if(lvl>=7) r.push('intensité forte → sons apaisants');
-  else if(lvl>=4) r.push('intensité modérée → Notch + Alpha');
-  if(type==='sifflement') r.push('sifflement → Notch ciblé');
-  else if(type==='bourdonnement') r.push('bourdonnement → Bruit Brun');
-  else if(type==='pulsatile') r.push('pulsatile → Océan');
-  if(factors.indexOf('stress')>=0) r.push('stress → Alpha soir');
-  if(factors.indexOf('fatigue')>=0) r.push('fatigue → Delta soir');
-  if(factors.indexOf('bruit')>=0) r.push('bruit → Notch');
-  return r.join(' · ');
-}
-
 // ═══ HELPERS ══════════════════════════════════════════════
 function dStr(d){return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});}
 function addD(d,n){var r=new Date(d);r.setDate(r.getDate()+n);return r;}
@@ -484,7 +414,6 @@ function showToast(msg){var el=document.getElementById('toast');if(!el)return;el
 
 // ═══ RENDER SONS ══════════════════════════════════════════
 function renderSons(){
-  try{
   var tr=todayRessenti();
   var ds=daysSince(),cw=currentWeek(),pp=progPct();
   var html='';
@@ -507,22 +436,6 @@ function renderSons(){
       +'<div style="font-size:22px;color:'+lvlCol+';font-family:monospace;font-weight:300">'+tr.level+'/10</div>'
       +'</div>'
       +'<button style="margin-top:7px;padding:4px 10px;border-radius:8px;border:1px solid '+lvlCol+'44;background:transparent;color:'+lvlCol+';font-family:monospace;font-size:8px;letter-spacing:2px;cursor:pointer" onclick="openRessenti(null)">MODIFIER</button>'
-      +'</div>';
-  }
-
-  // Recommandation selon ressenti
-  if(tr){
-    var rec=adaptPlan(PLAN[Math.min(11,currentWeek())]);
-    var lvlCol=tr.level<=3?'#4ade80':tr.level<=6?'#fbbf24':'#f87171';
-    var recThM=THERAPIES.filter(function(t){return t.id===rec.m[0];})[0];
-    var recThE=THERAPIES.filter(function(t){return t.id===rec.e[0];})[0];
-    html+='<div class="card" style="background:#080b12;border-color:#c084fc44;margin-bottom:10px;padding:11px 13px">'
-      +'<div style="font-size:9px;color:#c084fc;letter-spacing:2px;font-family:monospace;margin-bottom:7px">⚡ RECOMMANDÉ POUR TOI AUJOURD'HUI</div>'
-      +'<div style="display:flex;gap:8px;margin-bottom:'+(rec.reason?'7px':'0')+'">'
-      +(recThM?'<div style="flex:1;background:#0d1228;border-radius:10px;padding:9px;text-align:center;border:1px solid '+recThM.acc+'44"><div style="font-size:16px">'+recThM.ic+'</div><div style="font-size:9px;color:'+recThM.acc+';font-family:monospace;margin-top:3px">☀️ '+recThM.name+'</div><button onclick="onRec(''+recThM.id+'')" style="margin-top:6px;padding:4px 10px;border-radius:7px;border:1px solid '+recThM.acc+'55;background:transparent;color:'+recThM.acc+';font-family:monospace;font-size:8px;cursor:pointer">▶ LANCER</button></div>':'')
-      +(recThE?'<div style="flex:1;background:#0d1228;border-radius:10px;padding:9px;text-align:center;border:1px solid '+recThE.acc+'44"><div style="font-size:16px">'+recThE.ic+'</div><div style="font-size:9px;color:'+recThE.acc+';font-family:monospace;margin-top:3px">🌙 '+recThE.name+'</div><button onclick="onRec(''+recThE.id+'')" style="margin-top:6px;padding:4px 10px;border-radius:7px;border:1px solid '+recThE.acc+'55;background:transparent;color:'+recThE.acc+';font-family:monospace;font-size:8px;cursor:pointer">▶ LANCER</button></div>':'')
-      +'</div>'
-      +(rec.reason?'<div style="font-size:8px;color:#4a5278;font-family:monospace">'+rec.reason+'</div>':'')
       +'</div>';
   }
 
@@ -570,14 +483,6 @@ function renderSons(){
   html+='</div>';
   document.getElementById('tab-sons').innerHTML=html;
 
-  }catch(e){console.warn('renderSons:',e);document.getElementById('tab-sons').innerHTML='<div style="padding:20px;color:#f87171;font-family:monospace;font-size:11px">Erreur: '+e.message+'</div>';}
-
-  // Launch recommended therapy
-  window.onRec=function(id){
-    var th=THERAPIES.filter(function(t){return t.id===id;})[0];
-    if(th){if(activeId===id){cancelTimer();}else{startTimer(th,null);}}
-  };
-
   // Toggle functions
   THERAPIES.forEach(function(th){
     window['on'+th.id]=function(){
@@ -589,7 +494,6 @@ function renderSons(){
 
 // ═══ RENDER PROGRAMME ════════════════════════════════════
 function renderProg(){
-  try{
   var cw=currentWeek(),pp=progPct(),pd=progDone(),sd=startDate(),tr=todayRessenti();
   var html='';
 
@@ -614,9 +518,7 @@ function renderProg(){
 
   // Semaines
   for(var w=0;w<12;w++){
-    var basePlan=PLAN[w];
-    // Adapter le plan si c'est la semaine en cours et qu'il y a un ressenti
-    var plan=(w===cw)?adaptPlan(basePlan):basePlan;
+    var plan=PLAN[w];
     var done=0;S.prog[w].forEach(function(d){d.forEach(function(v){if(v)done++;});});
     var pct=Math.round(done/14*100),allDone=done===14,isExp=expandedWeek===w,isCur=w===cw;
     var ws=calDate(w,0),we=calDate(w,6);
@@ -632,7 +534,6 @@ function renderProg(){
       +'<div style="font-size:7px;color:'+PHASE_C[w]+';font-family:monospace;letter-spacing:1px;margin-top:1px">'+PHASES[w].toUpperCase()+'</div>'
       +'<div style="font-size:7px;color:#4a5278;margin-top:1px">'+dStr(ws)+' → '+dStr(we)+'</div>'
       +(missed>0?'<div style="font-size:7px;color:#fb923c;font-family:monospace">'+missed+' manquée'+(missed>1?'s':'')+'</div>':'')
-      +(w===cw&&plan.adapted&&plan.reason?'<div style="font-size:7px;color:#c084fc;font-family:monospace">⚡ Adapté: '+plan.reason+'</div>':'')
       +'</div></div>'
       +'<div style="text-align:right"><div style="font-size:13px;color:'+(allDone?'#4ade80':'#7aa2f7')+';font-family:monospace">'+pct+'%</div><div style="font-size:7px;color:#4a5278;font-family:monospace">'+done+'/14</div></div>'
       +'</div>';
@@ -692,8 +593,6 @@ function renderProg(){
   document.getElementById('tab-prog').innerHTML=html;
 }
 
-  }catch(e){console.warn('renderProg:',e);document.getElementById('tab-prog').innerHTML='<div style="padding:20px;color:#f87171;font-family:monospace;font-size:11px">Erreur: '+e.message+'</div>';}
-}
 function toggleWeek(w){expandedWeek=expandedWeek===w?null:w;renderProg();}
 function toggleCheck(w,d,p){S.prog[w][d][p]=!S.prog[w][d][p];saveS();renderProg();}
 
@@ -989,12 +888,10 @@ function showTab(id){
   else if(id==='data')renderData();
 }
 function renderAll(){
-  try{
   document.getElementById('hdr-sub').textContent='Démarré le '+dStr(startDate())+' · Jour '+(Math.max(1,daysSince()+1))+' · Sem.'+(currentWeek()+1);
   var active=document.querySelector('.tab.on');
   var id=active?TABS[Array.from(document.querySelectorAll('.tab')).indexOf(active)]:'sons';
   showTab(id);
-  }catch(e){console.warn('renderAll:',e);}
 }
 
 // ═══ INIT ═════════════════════════════════════════════════
